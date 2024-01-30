@@ -5,11 +5,12 @@ const { body, validationResult, check } = require("express-validator");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { route } = require("./auth");
+const fetchuser = require("../middleware/fetchuser");
 
 const validation = [
   body("name", "Name length atlest 3 character").isLength({ min: 3 }),
   body("email", "Email is not valid or incorrect email id").isEmail(),
-  body("password", "Password length at least 8 charcter").isLength({ min: 8 }),
+  body("password", "Password length at least 8 charcter").isLength({ min: 5 }),
 ];
 //RouteApi => /api/auth
 // router.post("/", validation, (req, res) => {
@@ -57,8 +58,10 @@ router.post("/createuser", validation, async (req, res) => {
     });
 
     //give token to the user
-
-    const authToken = jwt.sign({ _id: userData._id }, "ThisIsMySecretKey");
+    const data = {
+      id: user._id,
+    };
+    const authToken = jwt.sign({ _id: user._id }, "ThisIsMySecretKey");
     console.log(authToken);
     res.status(200).json({ status: "Success", User: userData });
   } catch (error) {
@@ -95,8 +98,22 @@ router.post("/login", validationLogin, async (req, res) => {
     const data = {
       id: user._id,
     };
-    const authToken = jwt.sign(data, "thisismysecretkey");
+    const authToken = jwt.sign(data, "ThisIsMySecretKey");
+    const token = req.header;
     res.status(200).json({ token: authToken });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send("Internal server error");
+  }
+});
+
+//Route:3 get user using a post : /api/auth/getuser .Login requiered
+
+router.post("/getuser", fetchuser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById({ _id: userId });
+    res.status(200).json(user);
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Internal server error");
