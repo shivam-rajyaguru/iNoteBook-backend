@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/user");
 const { body, validationResult } = require("express-validator");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const validation = [
   body("name", "Name length atlest 3 character").isLength({ min: 3 }),
@@ -34,18 +36,29 @@ router.post("/createuser", validation, async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-
-  let user = await User.findOne({ email: req.body.email });
-  console.log(user);
-  if (user) {
-    res
-      .status(400)
-      .json({ error: "Sorry a user with this emailId already exist" });
-  }
   try {
-    console.log(req.body);
-    const userData = await new User(req.body);
-    userData.save();
+    let user = await User.findOne({ email: req.body.email });
+    if (user) {
+      console.log(user);
+      res
+        .status(400)
+        .json({ error: "Sorry a user with this emailId already exist" });
+    }
+    //using bcryptJs hash your password
+    const salt = await bcrypt.genSalt(10);
+    const secPass = await bcrypt.hash(req.body.password, salt);
+
+    // console.log(req.body);
+    const userData = await User.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: secPass,
+    });
+
+    //give token to the user
+
+    const authToken = jwt.sign({ _id: userData._id }, "ThisIsMySecretKey");
+    console.log(authToken);
     res.status(200).json({ status: "Success", User: userData });
   } catch (error) {
     console.error(error.message);
