@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/user");
-const { body, validationResult } = require("express-validator");
+const { body, validationResult, check } = require("express-validator");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { route } = require("./auth");
 
 const validation = [
   body("name", "Name length atlest 3 character").isLength({ min: 3 }),
@@ -30,7 +31,7 @@ const validation = [
 // });
 // module.exports = router;
 
-// RouteApi => /api/auth.createuser
+//Route-1 create a User using post : /api/auth/createuser . no login required
 router.post("/createuser", validation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -63,6 +64,42 @@ router.post("/createuser", validation, async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ status: "Fail", error: error });
+  }
+});
+
+const validationLogin = [
+  body("email", "Email is not valid or incorrect email id").isEmail(),
+  check("password", "Password should not be empty").notEmpty(),
+];
+//Route-2 Authenticate a User using post : /api/auth/login . no login required
+router.post("/login", validationLogin, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  try {
+    const { email, password } = req.body;
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ error: "Please try to login with correct credentials" });
+    }
+    const secPass = await bcrypt.compare(password, user.password);
+    if (!secPass) {
+      return res
+        .status(400)
+        .json({ error: "Please try to login with correct credentials" });
+    }
+    const data = {
+      id: user._id,
+    };
+    const authToken = jwt.sign(data, "thisismysecretkey");
+    res.status(200).json({ token: authToken });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send("Internal server error");
   }
 });
 module.exports = router;
